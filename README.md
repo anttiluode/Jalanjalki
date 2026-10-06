@@ -14,6 +14,8 @@ On loaded prompts, and *only* relative to neutral ones, the post-trained model's
 
 Read this as a solid first measurement with a known-noisy instrument, not a finished result. See *Honest ledger*.
 
+**Status after review (Sol, 6 Oct):** the *state* effect (post-training changes how loaded vs neutral language is processed, before generation) is high-confidence. The *words* naming it (refusal, distrust ...) are provisional. Run 1 decoded both prompt halves with the same fitted lens, so lens-estimation error was shared between them, and prompt resampling can't test the vocabulary. Run 2 adds the gates that can (G4x–G7, below).
+
 ## Run
 
 ```bash
@@ -83,7 +85,7 @@ If G4 dies, that's still a result. It would mean the installed X at 0.6B is a un
 ### G1 / G2: where post-training sits
 
 - Weight drift: 5% at L0, rising to 12% at L14, falling to 2% at L26.
-- The lens itself changed a lot in early layers (matrix cosine 0.38 at L0) and hardly at the end (0.99 at L26). The early-layer number is mostly lens *noise* (split-half ≈ 0 there), so only the late-layer agreement is a real statement: post-training left the output end's geometry nearly untouched.
+- The lens cosine between models climbs from 0.38 at L0 to 0.99 at L26. *Correction (Sol):* this is **not** evidence that the early codebook was rewritten. J_ℓ is the product of every downstream block's Jacobian, A_{L−1}⋯A_ℓ. An early-layer lens passes through all the middle blocks post-training changed; a late one passes through almost none. So G2 shows **post-training divergence accumulating in the downstream transport**: the non-commuting product, measured. It does not localise anything. Lens noise in early layers (split-half ≈ 0) adds to the low early numbers.
 
 ### G3: passes trivially, kill rule was too weak
 
@@ -108,10 +110,10 @@ G4 is a difference of differences: (instruct − base on sensitive prompts) − 
 
 - **Down on sensitive prompts** (i.e. what post-training adds more on *neutral* prompts): the topics of the neutral questions themselves: glaciers, irrigation, microscope, ancestral, vegetation, biomass. On a plain question, the post-trained model fills its workspace with the subject. On a loaded one, it fills it with a verdict about the request.
 
-Three things make this credible despite the noisy lens:
-1. The refusal cluster is coherent across six neighbouring layers, and each layer's readout uses a different lens matrix.
-2. It is a difference of differences against a set-label-shuffle null, so neither the constant offset nor the base model's own reading of the content can produce it.
-3. It sits where weight drift peaked (L12–16) and footprint magnitude peaked (L16).
+What supports it, and where each support is weaker than run 1's README claimed:
+1. The refusal cluster is coherent across six neighbouring layers. *Weaker than it looks:* every layer's lens was fit from the same probe passes, so their estimation errors are correlated, and neighbouring layers are not independent readouts.
+2. It is a difference of differences against a set-label-shuffle null, so neither the constant offset nor the base model's own reading of the content can produce it. *But:* that null shuffles prompts, not the lens. The **state** difference is shown to be reproducible; the **words** are not, until G5 passes.
+3. It sits just after weight drift peaked (L12–16) and where footprint magnitude peaked (L16). Suggestive of "post-training rewrote mid-depth processing, and its result then became language-addressable", rather than a late refusal filter. Not causal localisation.
 
 **The distrust words were not predicted.** Distrust, suspicious, paranoia and cynical sit right next to refusal. In the terms of the conversation that started this repo, post-training installed something like suspicion of the user's intent on loaded prompts, in the workspace, before the answer. Whether this is "the model distrusts the user" or "the model represents the prompt as untrustworthy" can't be separated by this measurement.
 
@@ -119,8 +121,9 @@ Three things make this credible despite the noisy lens:
 
 | Claim | Status |
 |---|---|
-| Post-training's footprint at 0.6B changes with prompt type, measurably, in the verbalizable workspace | **supported** (G4, one model pair, one prompt set) |
-| On loaded prompts it is a judgement/refusal/distrust cluster at 54–71% depth, before any output | **supported, with lens-noise caveats**: coherent over layers, but single-layer top lists are unreliable |
+| Post-training changes, in a context-dependent way, how the internal state responds to loaded vs neutral prompts, before generation | **supported, high confidence** (G4 state effect, one model pair, one prompt set) |
+| On loaded prompts that change *reads as* judgement/refusal/distrust at 54–71% depth | **provisional**: decoded with one shared lens fit; awaits G5 (cross-lens) and G6 (matched pairs) |
+| The refusal representation drives behaviour | **untested in run 1**; G7 tests prediction, not yet intervention |
 | On neutral prompts post-training pushes the workspace toward the subject | **suggested** (G4 down-words); not tested on its own |
 | Post-training mostly rewrote mid-depth weights; the output end is nearly unchanged | **measured** (G1), my prediction was wrong |
 | The J-lens surfaces mid-depth bridge concepts in a 0.6B model | **not shown**: bridges only appear late, roughly as well as the logit lens finds them |
@@ -133,11 +136,31 @@ Three things make this credible despite the noisy lens:
 - The contrast is sensitive vs neutral, not sensitive vs request. Part of the effect could be "any request" rather than "loaded request".
 - One model size, one lens fit, one seed.
 
+## Run 2: the gates that can test the words
+
+Proposed by Sol in review; implemented in `jalanjalki.py`. A rerun reuses the cached lenses in `results/`, so it costs state collection plus answer generation, not another lens fit. Summaries are over the workspace band (default about 55–75% depth, i.e. L15–20 for 0.6B; override with `--band 15,20`).
+
+| Gate | What changes | Why |
+|---|---|---|
+| **G4x** | G4 repeated through the **plain logit lens**, and on **raw text** (no chat template) as well as templated | If the logit lens gives the same words, the result is real but isn't a J-lens result. If the cluster survives raw text, the template confound goes. |
+| **G5 cross-lens** | Prompt half A is decoded with half-lens J⁽⁰⁾, prompt half B with the **independently fitted** J⁽¹⁾, and swapped. Must beat a set-shuffle null on both correlation and top-25 word overlap. Also prints the band words under each half-lens separately. | Words must survive a change of prompts *and* of lens estimate at once. **KILL** if not: then "refusal/distrust" was a property of one noisy lens fit. |
+| **G6 matched pairs** | 24 twin prompts, same topic and wording, only intent differs ("honest review" / "fake review", "my own wifi" / "my neighbour's wifi" ...). Δ = (instruct − base) on loaded minus the same on benign. Null: random swap within pairs. Cross-lens like G5. Also per kind: safety, deception, privacy, coercion, hostility, jailbreak. | Removes the topic and wording confound that the sensitive-vs-neutral sets carry. Per-kind words separate X_safety from X_suspicion. |
+| **G7 behaviour** | The instruct model answers every prompt (greedy, 48 tokens). The G4 direction fitted on the main prompts scores the **held-out** pair prompts. AUC for actual refusals (regex), and how often the loaded twin scores above its benign twin. Controls: logit-lens score, and a base-model-only score. | Moves from "a representation exists" toward "it predicts what the model does". Prediction, not yet intervention. |
+
+Smoke-test sanity check for the new gates: in the toy models the fake post-training isn't context-dependent. The *old* same-lens G4 still passed (layers 2 and 4); the *new* cross-lens G5 correctly killed it. A shared lens can manufacture a pass, and G5 catches it.
+
+### What would upgrade the claim
+
+- G5 and G6 pass, and the refusal/distrust words come back under **both** half-lenses → the vocabulary is no longer provisional.
+- Only the J-lens (not the logit lens) gives the words mid-band → Jalanjälki shows extra value from the Jacobian lens itself.
+- G7 AUC well above 0.5 on held-out pairs, while the base-only control stays near 0.5 → the installed X predicts behaviour.
+- After that, intervention: suppress the direction and check whether refusals change while the rest of the processing survives. Only then is "installed agenda" earned, rather than "installed representation".
+
 ## Next
 
-1. **Fix the instrument first.** Rerun with `--probes 16384` and check that middle-layer split-half reliability rises above about 0.5. Without that, single-prompt readouts stay unusable.
-2. **Replace G3's kill rule** with a test against the template-token constant: subtract the footprint on a fixed empty-prompt baseline, or read at the last *user* token instead of the template token.
-3. **Split G4 by prompt kind** (safety / manipulation / identity / jailbreak) and add a sensitive-vs-request contrast. Does distrust come from the manipulation prompts and care from the safety prompts?
+1. **Run 2** with the cached lenses: `python jalanjalki.py` (same `results/` folder).
+2. If G5 fails: fit a bigger lens (`--probes 16384`) and rerun before concluding anything about words.
+3. **Replace G3's kill rule** with a test against the template-token constant (an empty-prompt baseline, or read at the last user token).
 4. **Run 1.7B** to see whether the cluster moves, sharpens or changes register at scale.
 
 ## Limits
