@@ -5,14 +5,14 @@ Lens probes: 4096 x 128 tokens; readout vocab 29646 words
 
 ## G0 lens works
 
-- **base**: median split-half corr 0.164, top-25 overlap 0.00, two-hop: 6/6 bridges in top-25 at some layer
+- **base**: median split-half corr 0.167, top-25 overlap 0.00, two-hop: 6/6 bridges in top-25 at some layer
   - France: J-lens best rank 2 at L21 (logit lens best 1)
   - Japan: J-lens best rank 2 at L22 (logit lens best 3)
   - Italy: J-lens best rank 18 at L22 (logit lens best 32)
   - Australia: J-lens best rank 1 at L22 (logit lens best 2)
   - Germany: J-lens best rank 7 at L22 (logit lens best 8)
   - Spain: J-lens best rank 5 at L24 (logit lens best 10)
-- **instruct**: median split-half corr 0.304, top-25 overlap 0.01, two-hop: 3/6 bridges in top-25 at some layer
+- **instruct**: median split-half corr 0.314, top-25 overlap 0.01, two-hop: 3/6 bridges in top-25 at some layer
   - France: J-lens best rank 5 at L26 (logit lens best 8)
   - Japan: J-lens best rank 3 at L26 (logit lens best 10)
   - Italy: J-lens best rank 775 at L22 (logit lens best 605)
@@ -128,3 +128,55 @@ Rule: KILL if the sensitive-minus-neutral footprint is no more stable than label
 | 24 | +0.895 | +0.444 | emailing, refusing, chatting, pretending, complaining, unsubscribe, blaming, tweeting | vegetation, glaciers, biomass, births, crystals |
 | 25 | +0.879 | +0.328 | emailing, flirt, unsubscribe, chatting, refusing, excuse, pretending, ignoring | biomass, vegetation, magma, glaciers, crystals |
 | 26 | +0.856 | +0.354 | unsubscribe, flirt, emailing, shouldn, regret, regrets, harassing, aren | births, vegetation, vistas, OnTrigger, biomass |
+
+## Run-2 gates: are the WORDS real?
+
+- **G5 cross-lens words (sensitive vs neutral): PASS**
+- **G6 matched pairs, cross-lens: KILL**
+- Rule: PASS if, in the band, more than half the layers beat both the stability null and the top-25 overlap null, with prompt halves decoded by independent lens fits
+
+| arm | band stability (null95) | stable layers | top-25 overlap (null95) | overlap layers | lens0 vs lens1 words | band words |
+|---|---|---|---|---|---|---|
+| unpaired/tpl/full | +0.929 (+0.529) | 6/6 | 0.60 (0.07) | 6/6 |  | refusing, pissed, distrust, unacceptable, worrying, refused, refusal, unsure, shouldn, disrespectful |
+| unpaired/tpl/logit | +0.904 (+0.472) | 6/6 | 0.45 (0.07) | 6/6 |  | unethical, regret, regrets, refusing, irres, irresponsible, advis, shouldn, caution, whom |
+| unpaired/tpl/cross | +0.429 (+0.246) | 6/6 | 0.08 (0.02) | 5/6 | 0.12 | refused, unsure, pissed, refusing, unwilling, desperate, frustrated, unhealthy, worried, suspicious |
+| unpaired/raw/full | +0.551 (+0.371) | 6/6 | 0.09 (0.05) | 4/6 |  | mail, senha, response, cutoff, gain, fos, ben, json, opp, solution |
+| unpaired/raw/logit | +0.487 (+0.348) | 6/6 | 0.09 (0.05) | 3/6 |  | constant, getchar, solution, fgets, coded, outputFile, filled, tasks, scanf, equalTo |
+| unpaired/raw/cross | +0.192 (+0.137) | 6/6 | 0.01 (0.02) | 0/6 | 0.00 | mail, fos, senha, json, http, confirm, CURLOPT, coded, foil, target |
+| paired/tpl/full | +0.815 (+0.565) | 6/6 | 0.27 (0.10) | 6/6 |  | forbidden, imposs, illegal, hatred, immoral, violating, dangerous, mockery, violates, unethical |
+| paired/tpl/logit | +0.762 (+0.485) | 6/6 | 0.39 (0.09) | 6/6 |  | forbidden, imposs, illegal, unlawful, unethical, impossible, unjust, unacceptable, cannot, unrealistic |
+| paired/tpl/cross | +0.496 (+0.343) | 6/6 | 0.04 (0.03) | 3/6 | 0.16 | mutil, absurd, unjust, imposs, nobody, denying, blasph, poison, retard, refusing |
+| paired/raw/full | +0.074 (+0.202) | 0/6 | 0.00 (0.00) | 0/6 |  | toxic, cage, toxin, predator, Jurassic, Oro, Marcos, Goblin, robber, lethal |
+| paired/raw/logit | +0.187 (+0.125) | 6/6 | 0.00 (0.01) | 0/6 |  | isValid, Choi, snakes, getHeight, erased, validated, Hasan, isKindOfClass, Marcos, Palace |
+| paired/raw/cross | -0.026 (+0.118) | 0/6 | 0.00 (0.01) | 0/6 | 0.00 | Goblin, bitte, Horde, Marcos, Mohammad, SWAT, dungeons, stif, predator, merciless |
+
+Cross-lens band words, sensitive vs neutral:
+
+- lens half 0: refused, unsure, pissed, refusing, unwilling, desperate, frustrated, unhealthy, worried, suspicious, worrying, compromised, irresponsible, neither, unethical, distrust, inappropriate, dangerous, accusations, unreasonable
+- lens half 1: refusal, refusing, shouldn, paranoia, unacceptable, distrust, inability, failing, worrying, shitty, hateful, resentment, mockery, resent, disgrace, disrespectful, hatred, disrespect, advis, paranoid
+
+Cross-lens band words, matched pairs (loaded minus benign):
+
+- lens half 0: mutil, absurd, unjust, imposs, nobody, denying, blasph, poison, retard, refusing, violates, refuses, suspicious, violating, refused, forbidden, denies, neither, dangerous, disrespect
+- lens half 1: illegal, hatred, mockery, forbidden, unacceptable, immoral, disgusting, unlawful, imposs, nonexistent, unlaw, insulting, insane, murderous, suicidal, merciless, violating, refusal, disgust, dangerous
+
+### G6 by kind (descriptive)
+
+- coercion: illegal, abort, forbidden, neither, conspiracy, fatal, violating, dangerous, lethal, conspir, terrorism, violence
+- deception: illegal, forbidden, immoral, unethical, dangerous, unlawful, violating, violates, violate, unacceptable, mutil, prohibited
+- hostility: hatred, mockery, merciless, punishing, absurd, punish, ridicule, pissed, nihil, fuck, fucking, cursed
+- jailbreak: pissed, strangers, fuck, furious, vengeance, screams, angry, punish, fucked, thugs, whim, freak
+- privacy: immoral, unethical, forbidden, dangerous, endanger, merciless, imposs, malicious, unacceptable, dislikes, violating, condemnation
+- safety: illegal, imposs, inability, neither, unacceptable, cannot, impossible, lack, fatal, violating, violates, mutil
+
+## G7 behaviour link
+
+Refusals (regex on 132 greedy answers): loaded pairs 5/24, benign pairs 0/24, main sensitive 4, neutral 0
+
+| score | AUC for refusal (held-out pairs) | loaded > benign |
+|---|---|---|
+| instruct_minus_base/jlens | 0.888 | 96% |
+| instruct_minus_base/logit | 0.851 | 92% |
+| base_only/jlens (control) | 0.507 | 88% |
+
+Answers are in `report.json` under `G7.answers`.
